@@ -111,7 +111,7 @@ Main {
       require 'nokogiri'
       doc = Nokogiri::HTML(lines.join("\n"))
       attrs = %w( href src link )
-      doc.search('//*').each do |node|
+      doc.traverse do |node|
         attrs.each do |attr|
           uri = node[attr]
           uris.push(uri.to_s) if uri
