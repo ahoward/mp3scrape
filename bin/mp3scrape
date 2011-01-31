@@ -1,0 +1,200 @@
+#! /usr/bin/env ruby
+
+
+Main {
+
+  description <<-____
+
+    mp3scrape will scour any url for it's mp3 content - the script mirrors,
+    never downloading the same file twice.  it does not, however, crawl a
+    website for links, it simple scapes all the songs from a single page.
+
+  ____
+
+  example <<-____
+
+    1) get a bunch of xmas tunes
+        mp3scrape http://fuelfriends.blogspot.com/2007/12/christmas-mixery.html
+
+    2) get a bunch of tunes
+        mp3scrape http://troubledsoulsunite.blogspot.com/
+
+    3) some cool songs about birds
+        mp3scrape http://oliverdiplace.blogspot.com/2010/07/bird-songs.html
+
+  ____
+
+
+
+  Home = File.expand_path(ENV["HOME"] || ENV["USERPROFILE"] || "~")
+  Basedir = File.join(Home, "mp3")
+  Threads = 8
+
+  argument("uri"){
+    description "the uri to scrape"
+    cast :uri
+  }
+
+  option("pattern", "p"){
+    description "specifiy the mp3 pattern" 
+    argument_required
+    default %|\.mp3$|
+  }
+
+  option("basedir", "b"){
+    description "specifiy the base download dir - default(#{ Basedir })"
+    argument_required
+    default Basedir
+  }
+
+  option("destination", "d"){
+    description "specifiy the absolute download dir - default(#{ File.join Basedir, 'auto-based-on-uri' })"
+    argument_required
+  }
+
+  option("list"){
+    description "only list the mp3s that would be scraped"
+  }
+
+  option("threads", "t"){
+    description "specify the number of threads to download with in parallel - default(#{ Threads })"
+    argument_required
+    default Threads
+    cast :integer
+  }
+
+  option("noop", "n"){
+    description "show the downloads that would be performed"
+  }
+
+  def run
+    uri = param["uri"].value
+    pattern = %r/#{ param["pattern"].value }/
+    uris = extract_uris(uri)
+    srcs = uris.select{|u| u =~ pattern}
+    if param["list"].given?
+      puts srcs
+      exit
+    end
+    dsts = destinations_for srcs, param["destination"].value
+    spec = srcs.zip dsts
+    if param["noop"].given?
+      spec.each{|src, dst| puts "#{ src } -> #{ dst }"}
+    else
+      mirror spec 
+    end
+  end
+
+  def extract_uris(uri)
+    content = nil
+    open(uri){|socket| content = socket.read}
+    uris = (extract_uris_by_pattern(content) + extract_uris_by_attribute(content)).uniq
+    uris.map{|uri| uri.to_s.gsub(/\s/, '+')}
+  end
+
+  def extract_uris_by_pattern(content)
+    protocols = %w[http https ftp]
+    lines = content.to_s.split(/\n/)
+    uris = []
+    lines.each do |line|
+      extracted = protocols.map{|pr| URI::extract(line, pr)}
+      extracted.flatten.compact.each{|uri| uris.push(uri)}
+    end
+    uris
+  end
+
+  def extract_uris_by_attribute(content)
+    lines = content.to_s.split(/\n/)
+    uris = []
+    begin
+      require 'rubygems'
+      require 'nokogiri'
+      doc = Nokogiri::HTML(lines.join("\n"))
+      attrs = %w( href src link )
+      doc.search('//*').each do |node|
+        attrs.each do |attr|
+          uri = node[attr]
+          uris.push(uri.to_s) if uri
+        end
+      end
+    rescue LoadError
+      nil
+    end
+    uris
+  end
+
+  def mirror spec
+    spec.threadify(params["threads"].value) do |src, dst|
+      begin
+        FileUtils.mkdir_p(File.dirname(dst))
+        mtime = File.stat(dst).mtime rescue Time.at(0) 
+        open src do |fd|
+          last_modified = fd.last_modified || Time.now
+          unless last_modified > mtime
+            puts "#{ src } == #{ dst }"
+            break
+          end
+          data = fd.read and fd.close
+          open(dst, "wb"){|fd| fd.write data}
+          File.utime last_modified, last_modified, dst
+          puts "#{ src } -> #{ dst }"
+        end
+      rescue Object => e
+        STDERR.puts "#{ e.message } (#{ e.class })"
+      end
+    end
+  end
+
+  def destinations_for srcs, destination = nil
+    srcs.map do |src|
+      basename = File.basename src
+      basename = clean basename
+      File.expand_path(
+        if destination
+          File.join destination, basename
+        else
+          uri = URI.parse(src.to_s)
+          host, paths = uri.host, uri.path.split("/").map{|path| clean path}
+          basename = clean paths.pop
+          [ Basedir, host, paths, basename ].flatten.compact.join(File::SEPARATOR)
+        end
+      )
+    end
+  end
+
+  def clean basename
+    CGI.unescape(basename.to_s).gsub(%r/[^0-9a-zA-Z_@)(~.-]/, '_').gsub(%r/_+/,'_')
+  end
+}
+
+BEGIN {
+  require "yaml"
+  require "uri"
+  require "open-uri"
+  require "fileutils"
+  require "cgi"
+
+  begin
+    require "rubygems"
+  rescue LoadError
+    42
+  end
+
+  begin
+    require "main"
+  rescue LoadError
+    STDERR.puts "gem install main"
+    exit 1
+  end
+
+  begin
+    require "threadify"
+  rescue LoadError
+    STDERR.puts "gem install threadify"
+    exit 1
+  end
+
+  STDERR.sync = STDOUT.sync = true
+
+  trap("INT"){ exit! }
+}

@@ -1,0 +1,42 @@
+NAME
+  mp3scrape
+
+SYNOPSIS
+  mp3scrape uri [options]+
+
+DESCRIPTION
+  
+      mp3scrape will scour any url for it's mp3 content - the script mirrors,
+      never downloading the same file twice.  it does not, however, crawl a
+      website for links, it simple scapes all the songs from a single page.
+
+PARAMETERS
+  uri (1 -> uri(uri)) 
+      the uri to scrape 
+  --pattern=pattern, -p (0 ~> pattern=.mp3$) 
+      specifiy the mp3 pattern 
+  --basedir=basedir, -b (0 ~> basedir=/Users/ahoward/mp3) 
+      specifiy the base download dir - default(/Users/ahoward/mp3) 
+  --destination=destination, -d (0 ~> destination) 
+      specifiy the absolute download dir - 
+      default(/Users/ahoward/mp3/auto-based-on-uri) 
+  --list 
+      only list the mp3s that would be scraped 
+  --threads=threads, -t (0 ~> integer(threads=8)) 
+      specify the number of threads to download with in parallel - 
+      default(8) 
+  --noop, -n 
+      show the downloads that would be performed 
+  --help, -h 
+
+EXAMPLES
+  
+      1) get a bunch of xmas tunes
+          mp3scrape http://fuelfriends.blogspot.com/2007/12/christmas-mixery.html
+  
+      2) get a bunch of tunes
+          mp3scrape http://troubledsoulsunite.blogspot.com/
+  
+      3) some cool songs about birds
+          mp3scrape http://oliverdiplace.blogspot.com/2010/07/bird-songs.html
+
