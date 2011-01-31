@@ -7,7 +7,7 @@ Main {
 
     mp3scrape will scour any url for it's mp3 content - the script mirrors,
     never downloading the same file twice.  it does not, however, crawl a
-    website for links, it simple scapes all the songs from a single page.
+    website for links, it simply scapes all the songs from a single page.
 
   ____
 
@@ -48,7 +48,7 @@ Main {
   }
 
   option("destination", "d"){
-    description "specifiy the absolute download dir - default(#{ File.join Basedir, 'auto-based-on-uri' })"
+    description "specifiy the absolute download dir - default(#{ File.join(Basedir, 'auto-based-on-uri') })"
     argument_required
   }
 
@@ -76,12 +76,12 @@ Main {
       puts srcs
       exit
     end
-    dsts = destinations_for srcs, param["destination"].value
-    spec = srcs.zip dsts
+    dsts = destinations_for(srcs, param["destination"].value)
+    spec = srcs.zip(dsts)
     if param["noop"].given?
       spec.each{|src, dst| puts "#{ src } -> #{ dst }"}
     else
-      mirror spec 
+      mirror(spec)
     end
   end
 
@@ -123,7 +123,7 @@ Main {
     uris
   end
 
-  def mirror spec
+  def mirror(spec)
     spec.threadify(params["threads"].value) do |src, dst|
       begin
         FileUtils.mkdir_p(File.dirname(dst))
@@ -145,7 +145,7 @@ Main {
     end
   end
 
-  def destinations_for srcs, destination = nil
+  def destinations_for(srcs, destination = nil)
     srcs.map do |src|
       basename = File.basename src
       basename = clean basename
